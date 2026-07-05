@@ -1,0 +1,455 @@
+openapi: "3.0.3"
+info:
+  title: "AutoMaster+ Assistant API"
+  description: |
+    API для сбора и управления заявками клиентов автосервиса.
+    Поддерживает веб-чат, Telegram бота, админ-панель и REST API.
+
+    ## Основные возможности
+    - Сбор заявок через веб-чат и Telegram
+    - AI-консультации через OpenAI
+    - Сохранение заявок в Google Sheets и/или PostgreSQL
+    - Админ-панель с базовой HTTP-аутентификацией
+    - Защита от CSRF и brute-force атак
+  version: "1.0.0"
+  contact:
+    name: "AutoMaster+ Support"
+    url: "https://github.com/godlesscreator/AutoMaster-Assistant"
+
+servers:
+  - url: "http://localhost:8000"
+    description: "Локальный сервер для разработки"
+  - url: "https://your-domain.com"
+    description: "Production сервер"
+
+paths:
+  /health:
+    get:
+      summary: "Проверка здоровья сервиса"
+      operationId: "healthCheck"
+      tags:
+        - "Health"
+      responses:
+        "200":
+          description: "Сервис работает"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  /:
+    get:
+      summary: "Корневой эндпоинт"
+      operationId: "root"
+      tags:
+        - "Health"
+      responses:
+        "200":
+          description: "Информация о сервисе"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RootResponse"
+
+  /api/v1/health:
+    get:
+      summary: "Проверка здоровья API v1"
+      operationId: "apiV1Health"
+      tags:
+        - "API v1"
+      responses:
+        "200":
+          description: "API работает"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiHealthResponse"
+
+  /api/v1/leads:
+    post:
+      summary: "Создать новую заявку"
+      operationId: "createLead"
+      tags:
+        - "API v1"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLeadRequest"
+      responses:
+        "201":
+          description: "Заявка создана"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeadResponse"
+        "400":
+          description: "Некорректные данные"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: "Запрещено (неверный Origin)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    get:
+      summary: "Получить список заявок"
+      operationId: "listLeads"
+      tags:
+        - "API v1"
+      parameters:
+        - name: "limit"
+          in: "query"
+          description: "Максимальное количество заявок"
+          schema:
+            type: "integer"
+            default: 50
+            maximum: 1000
+      responses:
+        "200":
+          description: "Список заявок"
+          content:
+            application/json:
+              schema:
+                type: "array"
+                items:
+                  $ref: "#/components/schemas/LeadResponse"
+
+  /api/v1/leads/{lead_id}:
+    get:
+      summary: "Получить заявку по ID"
+      operationId: "getLeadById"
+      tags:
+        - "API v1"
+      parameters:
+        - name: "lead_id"
+          in: "path"
+          required: true
+          schema:
+            type: "integer"
+      responses:
+        "200":
+          description: "Заявка найдена"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeadResponse"
+        "404":
+          description: "Заявка не найдена"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/leads/{lead_id}/status:
+    patch:
+      summary: "Обновить статус заявки"
+      operationId: "updateLeadStatus"
+      tags:
+        - "API v1"
+      parameters:
+        - name: "lead_id"
+          in: "path"
+          required: true
+          schema:
+            type: "integer"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateStatusRequest"
+      responses:
+        "200":
+          description: "Статус обновлён"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeadResponse"
+        "400":
+          description: "Некорректный статус"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: "Запрещено (неверный Origin)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: "Заявка не найдена"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /webchat:
+    post:
+      summary: "Отправить сообщение в веб-чат"
+      operationId: "webchatMessage"
+      tags:
+        - "WebChat"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebChatRequest"
+      responses:
+        "200":
+          description: "Ответ от AI"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebChatResponse"
+        "400":
+          description: "Некорректный запрос"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: "CSRF токен неверный"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/:
+    get:
+      summary: "Админ-панель (дашборд)"
+      operationId: "adminDashboard"
+      tags:
+        - "Admin"
+      security:
+        - basicAuth: []
+      responses:
+        "200":
+          description: "HTML страница админ-панели"
+          content:
+            text/html:
+              schema:
+                type: "string"
+        "401":
+          description: "Требуется аутентификация"
+
+  /admin/leads:
+    get:
+      summary: "Список заявок (JSON) для админ-панели"
+      operationId: "adminLeads"
+      tags:
+        - "Admin"
+      security:
+        - basicAuth: []
+      responses:
+        "200":
+          description: "Список заявок"
+          content:
+            application/json:
+              schema:
+                type: "array"
+                items:
+                  $ref: "#/components/schemas/LeadResponse"
+        "401":
+          description: "Требуется аутентификация"
+
+  /admin/export:
+    get:
+      summary: "Экспорт заявок в CSV"
+      operationId: "adminExport"
+      tags:
+        - "Admin"
+      security:
+        - basicAuth: []
+      responses:
+        "200":
+          description: "CSV файл с заявками"
+          content:
+            text/csv:
+              schema:
+                type: "string"
+        "401":
+          description: "Требуется аутентификация"
+
+components:
+  securitySchemes:
+    basicAuth:
+      type: "http"
+      scheme: "basic"
+      description: "Базовая HTTP-аутентификация для админ-панели"
+
+  schemas:
+    HealthResponse:
+      type: "object"
+      properties:
+        status:
+          type: "string"
+          example: "ok"
+        timestamp:
+          type: "string"
+          format: "date-time"
+          example: "2026-06-30T12:00:00Z"
+
+    RootResponse:
+      type: "object"
+      properties:
+        service:
+          type: "string"
+          example: "AutoMaster+ Assistant"
+        version:
+          type: "string"
+          example: "1.0.0"
+        status:
+          type: "string"
+          example: "running"
+
+    ApiHealthResponse:
+      type: "object"
+      properties:
+        status:
+          type: "string"
+          example: "ok"
+        version:
+          type: "string"
+          example: "v1"
+
+    CreateLeadRequest:
+      type: "object"
+      required:
+        - "name"
+        - "phone"
+      properties:
+        name:
+          type: "string"
+          description: "Имя клиента"
+          minLength: 2
+          maxLength: 100
+          example: "Иван Петров"
+        phone:
+          type: "string"
+          description: "Номер телефона"
+          example: "+7 (999) 123-45-67"
+        car:
+          type: "string"
+          description: "Марка и модель авто"
+          example: "Toyota Camry 2020"
+        service:
+          type: "string"
+          description: "Желаемая услуга"
+          example: "Замена масла"
+        desired_datetime:
+          type: "string"
+          description: "Желаемая дата и время"
+          example: "2026-07-01 14:00"
+        comment:
+          type: "string"
+          description: "Комментарий"
+          maxLength: 500
+          example: "Позвонить за час до приезда"
+
+    UpdateStatusRequest:
+      type: "object"
+      required:
+        - "status"
+      properties:
+        status:
+          type: "string"
+          description: "Новый статус заявки"
+          enum:
+            - "new"
+            - "contacted"
+            - "confirmed"
+            - "completed"
+            - "cancelled"
+          example: "contacted"
+
+    LeadResponse:
+      type: "object"
+      properties:
+        id:
+          type: "integer"
+          example: 1
+        source:
+          type: "string"
+          example: "webchat"
+        timestamp:
+          type: "string"
+          example: "2026-06-30 12:00:00"
+        name:
+          type: "string"
+          example: "Иван Петров"
+        phone:
+          type: "string"
+          example: "+79991234567"
+        car:
+          type: "string"
+          example: "Toyota Camry 2020"
+        service:
+          type: "string"
+          example: "Замена масла"
+        desired_datetime:
+          type: "string"
+          example: "2026-07-01 14:00"
+        comment:
+          type: "string"
+          example: "Позвонить за час"
+        user_id:
+          type: "string"
+          example: "tg_12345"
+        status:
+          type: "string"
+          example: "new"
+        created_at:
+          type: "string"
+          format: "date-time"
+        updated_at:
+          type: "string"
+          format: "date-time"
+
+    WebChatRequest:
+      type: "object"
+      required:
+        - "message"
+      properties:
+        message:
+          type: "string"
+          description: "Текст сообщения"
+          example: "Хочу записаться на замену масла"
+        session_id:
+          type: "string"
+          description: "ID сессии (для продолжения диалога)"
+          example: "abc123"
+        csrf_token:
+          type: "string"
+          description: "CSRF токен (требуется для существующей сессии)"
+          example: "a1b2c3d4..."
+
+    WebChatResponse:
+      type: "object"
+      properties:
+        reply:
+          type: "string"
+          description: "Ответ от AI"
+          example: "Здравствуйте! Подскажите, пожалуйста, марку и модель вашего автомобиля."
+        session_id:
+          type: "string"
+          description: "ID сессии для продолжения диалога"
+          example: "abc123"
+        lead_complete:
+          type: "boolean"
+          description: "Флаг, что все данные заявки собраны"
+          example: false
+
+    ErrorResponse:
+      type: "object"
+      properties:
+        error:
+          type: "string"
+          description: "Описание ошибки"
+          example: "Неверный формат данных"

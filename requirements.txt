@@ -1,0 +1,42 @@
+# AutoMaster+ Assistant — зависимости
+# Установка: pip install -r requirements.txt
+
+# --- Веб-фреймворк ---
+flask>=3.0.0
+gunicorn>=22.0.0
+
+# --- Telegram ---
+python-telegram-bot>=21.6,<22.0
+
+# --- База данных ---
+sqlalchemy>=2.0.25
+psycopg2-binary>=2.9.9
+
+# --- Кеш ---
+redis>=5.0.1
+
+# --- AI ---
+openai>=1.35.0
+
+# --- Google Sheets ---
+google-api-python-client>=2.120.0
+google-auth-httplib2>=0.2.0
+google-auth-oauthlib>=1.2.0
+
+# --- HTTP ---
+requests>=2.31.0
+
+# --- Конфигурация ---
+python-dotenv>=1.0.0
+
+# --- Мониторинг ---
+sentry-sdk>=2.0.0
+
+# --- Миграции БД ---
+alembic>=1.13.0
+
+# --- Тестирование ---
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
+pytest-cov>=4.1.0
+pytest-mock>=3.12.0
